@@ -1,10 +1,8 @@
-#ifndef COMPLEX_H
-#define COMPLEX_H
-
+#pragma once
 #include <iostream>
 #include <cmath>
-
-typedef double type_data;
+typedef float type_data;
+const type_data PI = (type_data)(atan(1)) * 4;
 
 class Complex {
 private:
@@ -35,4 +33,4 @@ Complex operator + (type_data a, Complex b);
 Complex operator * (Complex a, type_data b);
 Complex operator * (type_data a, Complex b);
 
-#endif
+
