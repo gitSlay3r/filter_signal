@@ -1,7 +1,7 @@
 #pragma once
 #include <iostream>
 #include <cmath>
-typedef double type_data;
+typedef float type_data;
 const type_data PI = (type_data)(atan(1)) * 4;
 
 class Complex {

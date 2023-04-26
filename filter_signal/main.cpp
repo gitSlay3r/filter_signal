@@ -27,13 +27,14 @@ FILE* file;
 
 int main()
 {
-
     setlocale(LC_ALL, "ru");
     double A = 1;
     float T = 5;
     double dt = 1.0 / fs;
     float iter = fs * T;
-    file = fopen("C://Users//maksi//source//repos//filter_signal//filter_signal//chan_30kHz_float.pcm", "rb"); // путь пк
+   
+    file = fopen("C:/Users/maksi/source/repos/peredis/peredis/chan_30kHz_float.pcm", "rb"); // путь пк
+    //file = fopen("C:/Users/AhtemiichukMaxim/source/repos/NIR_peredis/chan_30kHz_float.pcm", "rb"); // путь ноут
     if (file == NULL) {
         cout << "error" << endl;
     }
@@ -47,7 +48,6 @@ int main()
 
     int len_signal_elem = len_signal / 2;
     vector <Complex> to_up(len_piece, 0.0);
-
     int n = 32;
     int len_resample = (int)(ceil((type_data)to_up.size() * (L * L2) / M2));
     vector <Complex> result_block((length_block * L) + n);
@@ -68,14 +68,12 @@ int main()
     int dlina = 0;
     int dlina2 = 0;
     int len_piece_resample = 0;
-    int count_channel = 1; // колличество каналов
+    int count_channel = 14; // колличество каналов
     vector<int> sdvig(L2);
 
     vector<vector <type_data>> polyphazes(L2, vector<type_data>(order_poly + 1));
     Resampler::create_polyphazes(L2, M2, order_poly, polyphazes, sdvig);
-    /*resampler f3(&polyphazes, &sdvig, len_x_add_ostatok, L2, M2, order_poly);*/
-    /*interpolator f2(length_conv, fs, L, n);*/
-
+   
     vector <Resampler> f3(count_channel); // объекты класса для полифазника
     for (int i = 0; i < count_channel; i++) {
         f3[i] = Resampler(&polyphazes, &sdvig, len_x_add_ostatok, L2, M2, order_poly);
@@ -87,16 +85,15 @@ int main()
     }
 
     vector <Complex> result_fs(result.size(), 0.0); // сюда пойдет итог по каналам с переносом
-    //vector <Complex> itog(result.size(), 0.0); // результат 
+
     type_data t_up = 1 / fs_after; // для переноса
 
     int temp_len = 0;
 
     clock_t start = clock();
 
-    for (int k = 0; k < count_channel; )
+    for (int k = 0; k < count_channel; k++)
     {
-        k++;
         for (int count_up = 0, j = 0; count_up < len_piece; count_up++, j += 2) // запись re, im для 
         {
             to_up[count_up] = Complex(data[(j)+temp_len], data[(j + 1) + temp_len]);
@@ -139,8 +136,8 @@ int main()
     cout << "Скорость обработки: " << speed / 1e6 << " мSamp/сек" << endl;
 
     ofstream toMATLAB;
-    string path = "Y:\\Documents\\MATLAB\\NIR\\cpp_tests\\test_sin.bin"; //путь ноут 
-    //string path = "C:\\Users\\maksi\\OneDrive\\Документы\\MATLAB\\vs19\\test_sin.bin"; //путь пк
+    //string path = "Y:\\Documents\\MATLAB\\NIR\\cpp_tests\\test_sin.bin"; //путь ноут 
+    string path = "C:\\Users\\maksi\\OneDrive\\Документы\\MATLAB\\vs19\\test_sin.bin"; //путь пк
     toMATLAB.open(path, ios::binary); //запись 
 
     type_data re = 0;
@@ -156,5 +153,4 @@ int main()
 
     toMATLAB.close();
     return 0;
-
 }
