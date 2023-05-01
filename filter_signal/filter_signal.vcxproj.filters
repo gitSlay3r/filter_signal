@@ -30,6 +30,9 @@
     <ClCompile Include="fir1.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Decimator.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Complex.h">
@@ -42,6 +45,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="fir1.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Decimator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
