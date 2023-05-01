@@ -140,6 +140,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Complex.cpp" />
+    <ClCompile Include="Decimator.cpp" />
     <ClCompile Include="fir1.cpp" />
     <ClCompile Include="Interpolator.cpp" />
     <ClCompile Include="main.cpp" />
@@ -147,6 +148,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Complex.h" />
+    <ClInclude Include="Decimator.h" />
     <ClInclude Include="fir1.h" />
     <ClInclude Include="Interpolator.h" />
     <ClInclude Include="Resampler.h" />

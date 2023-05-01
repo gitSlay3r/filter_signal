@@ -1,5 +1,5 @@
 #include "Resampler.h"
-#include "fir1.h"
+
 void poly_sort(vector<vector<type_data>>& poly_filt, vector<vector<type_data>>& polyphazes, int num, int m, type_data delay, int count_poly) {
 
     for (int i = 0, j = count_poly; i < count_poly; i++, j--) {

@@ -1,7 +1,7 @@
 #pragma once
 #include "Complex.h"
+#include "fir1.h"
 #include <vector>
-
 
 using namespace std;
 

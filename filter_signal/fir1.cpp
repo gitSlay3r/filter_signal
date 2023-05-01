@@ -63,3 +63,14 @@ void hamming(int n, vector<type_data>& x)
         x[i] *= a0 - (1 - a0) * cos(phi);
     }
 }
+void conv(vector<Complex>& x, int num1, vector<type_data>& h, vector<Complex>& svertka)
+{
+    int N = num1 + size(h) - 1;
+
+    memset(&svertka[0], 0, sizeof(Complex) * N);
+    for (int i = 0; i < N; i++) {
+        for (unsigned j = 0; j < size(h); j++) {
+            svertka[i] += x[i + j] * h[size(h) - j - 1];
+        }
+    }
+}
