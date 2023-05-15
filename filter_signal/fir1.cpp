@@ -1,6 +1,7 @@
 #include "fir1.h"
 
-void idft_fir1(vector<Complex>& x_in, int num, vector<type_data>& x_out) {
+void idft_fir1(vector<Complex>& x_in, int num, vector<type_data>& x_out) 
+{
 
     for (int n = 0; n < num; n++) {
         for (int k = 0; k < num; k++) {
@@ -11,9 +12,33 @@ void idft_fir1(vector<Complex>& x_in, int num, vector<type_data>& x_out) {
         x_out[n] = x_out[n] / num;
     }
 }
-void fir1(int n, type_data fc, type_data fs, type_data delay, vector<type_data>& h) {
+void hamming(int n, vector<type_data>& x) 
+{
+    type_data a0 = 0.54f;
+    for (int i = 0; i < n + 1; i++) {
+        type_data phi = (2 * PI * (type_data)i / ((type_data)n + 1));
+        x[i] *= a0 - (1 - a0) * cos(phi);
+    }
+}
+
+void conv(vector<Complex>& x, int num1, vector<type_data>& h, vector<Complex>& svertka)
+{
+    int N = num1 + size(h) - 1;
+
+    memset(&svertka[0], 0, sizeof(Complex) * N);
+    for (int i = 0; i < N; i++) {
+        for (unsigned j = 0; j < size(h); j++) {
+            svertka[i] += x[i + j] * h[size(h) - j - 1];
+        }
+    }
+}
+void fir1(int n, type_data fc, type_data fs, type_data delay, vector<type_data>& h) 
+{
 
     int N = n + 1;
+    if (fc > 1)
+        fc = 1./fc;
+
     type_data K = (type_data)n / 2 * fc;
     vector <int> H(N);
     vector <type_data> f1(N);
@@ -24,7 +49,7 @@ void fir1(int n, type_data fc, type_data fs, type_data delay, vector<type_data>&
     vector <type_data> phi(N);
     if (N % 2 != 0) {
         for (int i = n / 2 - (int)K; i < n / 2 + 1 + (int)K; i++)
-            H[i] = 1; // À×Õ ÔÍ× ôèëüòðà
+            H[(i)] = 1; // À×Õ ÔÍ× ôèëüòðà
 
         for (int i = 0; i < N; i++)
             phi[i] = (-(type_data)n / 2 - delay) * 2 * PI * f1[i]; // Ô×Õ ÔÍ× ôèëüòðà
@@ -54,23 +79,4 @@ void fir1(int n, type_data fc, type_data fs, type_data delay, vector<type_data>&
 
     idft_fir1(h_shift, N, h);
     hamming(n, h);
-}
-void hamming(int n, vector<type_data>& x)
-{
-    type_data a0 = 0.54f;
-    for (int i = 0; i < n + 1; i++) {
-        type_data phi = (2 * PI * (type_data)i / ((type_data)n + 1));
-        x[i] *= a0 - (1 - a0) * cos(phi);
-    }
-}
-void conv(vector<Complex>& x, int num1, vector<type_data>& h, vector<Complex>& svertka)
-{
-    int N = num1 + size(h) - 1;
-
-    memset(&svertka[0], 0, sizeof(Complex) * N);
-    for (int i = 0; i < N; i++) {
-        for (unsigned j = 0; j < size(h); j++) {
-            svertka[i] += x[i + j] * h[size(h) - j - 1];
-        }
-    }
 }

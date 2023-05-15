@@ -5,35 +5,77 @@
 #include <vector>
 #include <memory.h>
 #include <ctime>
+//#include <stdio.h>
+//#include "ipp.h"
 #include "Complex.h"
 #include "Interpolator.h"
 #include "Resampler.h"
 #include "Decimator.h"
 
 using namespace std;
-int len_piece = 98304;
 
-int length_block = 8192;
+
 int lim_block = 500000;
 int fs_down = 800e3;
 int L = 20; // целый интерполятор
 int M1 = 5; // целый дециматор
-int M2 = 2;
-int M3 = 2;
-int fs_up = 30e3;
-int poly_M = 3; // для полифазника вниз
-int poly_L = 4; // для полифазника вверх
+int M2 = 4;
+int poly_M = 4; // для полифазника вниз
+int poly_L = 3; // для полифазника вверх
 type_data  FS_M1 = (fs_down) / M1;
 type_data FS_M2 = FS_M1 / M2;
-type_data FS_M3 = FS_M2 / M3;
-type_data FS_L = fs_up * L;
-type_data FS_res = FS_L * poly_M;
-type_data fs_after = fs_up * L * poly_L / poly_M;
+//type_data FS_L = fs_up * L;
+//type_data FS_res = FS_L * poly_M;
 
 int shift_f[14] = { 226420, 201808, 175924, 151435, 126585, 76113, 26325, 475, -48627, -73840, -124001, -173430, -199275, -223844 };
 
 FILE* file;
 FILE* file2;
+
+void Stage_filter(vector <vector<Decimator>>& decim, int& f_number, vector <Complex>& x_in,int& len_signal_buff,vector<int>& M, int& fs, int& len_pieces, int& n, vector <Complex>& signal_buff_M, int& flag)
+{
+    int len_conv = len_pieces + n; // длина свертки 
+    int fs_stage = fs; // частота на каждом этапе  
+    int original_size = len_conv;
+    //входной буфер
+    vector <Complex> signal_buff = x_in;
+    int temp = 0;
+    for (int i = 0; i < M.size(); i++)
+    {
+        int len_signal_buff_M = 0;
+        // выходной буффер
+        signal_buff_M.resize((int)(ceil(((type_data)(original_size + n/2 - temp)/ M[i]))));
+        // прореживание
+        decim[i][f_number].filter(signal_buff_M, len_signal_buff_M, signal_buff, len_signal_buff, flag);
+        // для следующей итерации(другой коэффициент)
+        signal_buff = signal_buff_M;
+        fs_stage = fs_stage / M[i];
+        original_size += n / 2;
+        original_size = original_size / M[i] + n;
+        len_signal_buff = len_signal_buff_M;
+        temp += n;
+    }   
+}
+vector<vector<Decimator>> Make_class_dec(vector<int>& M, int& count_channel, int& len_pieces, int& n,int& fs)
+{
+    // первое значание- класс для опредленного коэффициента 
+    // второе значение- класс для каннала
+    int len_conv = len_pieces + n; // длина свертки 
+    int fs_stage = fs; // частота на каждом этапе  
+    int original_size = len_conv;
+    vector <vector<Decimator>> decim(M.size(), vector<Decimator> (count_channel));
+    for (int k = 0; k < M.size(); k++)
+    {
+        for (int i = 0; i < count_channel; i++)
+        {
+            decim[k][i] = Decimator(original_size, fs_stage, M[k], n);
+        }
+        fs_stage = fs_stage / M[k];
+        original_size += n / 2;
+        original_size = original_size / M[k] + n;
+    }
+    return decim;
+}
 
 void filter_down()
 {
@@ -66,19 +108,16 @@ void filter_down()
     int len_sig_decim2 = 0;
 
     vector <Complex> signal_shift(len_pieces);
-    vector <Complex> signal_after_decimM1((int)(ceil(((type_data)(len_conv + n / 2) / M1))));
-    vector <Complex> signal_after_decimM2((int)((type_data)(size(signal_after_decimM1) + n / 2) / M2));
-
+    
     int len_piece_resample = 0;
-    int len_x_add_ostatok = size(signal_after_decimM2) + 3 * order_poly / 2;
-    vector <Complex> signal_peredis((int)(ceil((type_data)(len_x_add_ostatok)*L / M3)));
+   
 
     int dlina1 = 0;
     int dlina2 = 0;
-    int len_resample = (int)(ceil((type_data)len_signal_elem * L / M1 / M2 / M3));
+    int len_resample = (int)(ceil((type_data)len_signal_elem * poly_L / M1 / M2 / poly_M));
     vector <vector<Complex>> matrix_chan(count_channel, vector<Complex>(len_resample));
 
-    vector <Decimator> h1(count_channel);
+ /*   vector <Decimator> h1(count_channel);
     for (int i = 0; i < count_channel; i++) {
         h1[i] = Decimator(len_conv, fs_down, M1, n);
     }
@@ -86,31 +125,55 @@ void filter_down()
     vector <Decimator> h2(count_channel);
     for (int i = 0; i < count_channel; i++) {
         h2[i] = Decimator(size(signal_after_decimM1) + n, FS_M1, M2, n);
-    }
+    }*/
 
-    vector<int> sdvig(L);
-    vector<vector <type_data>> polyphazes(L, vector<type_data>(order_poly + 1));
-    Resampler::create_polyphazes(L, M3, order_poly, polyphazes, sdvig);
+    vector<int> sdvig(poly_L);
+    vector<vector <type_data>> polyphazes(poly_L, vector<type_data>(order_poly + 1));
+    Resampler::create_polyphazes(poly_L, poly_M, order_poly, polyphazes, sdvig, FS_M2);
 
     vector <Resampler> h3(count_channel);
-    for (int i = 0; i < count_channel; i++) {
-        h3[i] = Resampler(&polyphazes, &sdvig, len_x_add_ostatok, L, M3, order_poly);
-    }
+    /*for (int i = 0; i < count_channel; i++) {
+        h3[i] = Resampler(&polyphazes, &sdvig, len_x_add_ostatok, poly_L, poly_M, order_poly);
+    }*/
 
     int flag = 0;
     int dlina = 0;
     int piece = 0;
     int konec = 0;
     clock_t start = clock();
-    while (flag == 0) {
+
+    vector <int> M{ 2 ,2 , 5 };
+  
+    // вычисление размера вектора для ресемплера
+    int len_signal_after_decimM = 0;
+    for (int i = 0, temp = n/2, temp2 = len_conv; i < M.size(); i++, temp = n/2 )
+    {
+        len_signal_after_decimM = ceil(temp2 + temp)/ M[i];
+        temp2 = len_signal_after_decimM;
+    }
+    vector <Complex> signal_after_decimM(len_signal_after_decimM);
+    // создание объектов класса дециматор для каждого канала 
+    vector <vector<Decimator>> decim = Make_class_dec(M, count_channel, len_pieces, n, fs_down);
+    //размер и сам буффер для ресемплера
+    int res_ostatok = size(signal_after_decimM) + 3 * order_poly / 2;
+    vector <Complex> signal_peredis((int)(ceil((type_data)(res_ostatok)*poly_L / poly_M)));
+    // создание объектов класса ресемплер для каждого канала
+    for (int i = 0; i < count_channel; i++)
+    {
+        h3[i] = Resampler(&polyphazes, &sdvig, res_ostatok, poly_L, poly_M, order_poly);
+    }
+    while (flag == 0) 
+    {
 
         konec = (piece + 1) * len_pieces;
-        if (konec >= len_signal_elem) {
+        if (konec >= len_signal_elem) 
+        {
             flag = 1;
             konec = len_signal_elem;
         }
 
-        for (int f_number = 0; f_number < count_channel; f_number++) {
+        for (int f_number = 0; f_number < count_channel; f_number++) 
+        {
 
             //перенос по частоте         
             for (int h = len_pieces * piece, m = 0, j = 2 * h; h < konec; h++, m++, j += 2) {
@@ -121,25 +184,20 @@ void filter_down()
             }
 
             //прореживание
-            //первый дециматор--------------------------------------------------
-            h1[f_number].filter(signal_after_decimM1, len_sig_decim1, signal_shift, len_signal_shift, flag);
-
-            //второй дециматор--------------------------------------------------           
-            h2[f_number].filter(signal_after_decimM2, len_sig_decim2, signal_after_decimM1, len_sig_decim1, flag);
-
+            Stage_filter(decim, f_number, signal_shift, len_signal_shift, M, fs_down, len_pieces, n, signal_after_decimM, flag);
+            
             //ресемплер
-            h3[f_number].resample(signal_peredis, len_piece_resample, signal_after_decimM2, len_sig_decim2, flag);
-
+            h3[f_number].resample(signal_peredis, len_piece_resample, signal_after_decimM, len_signal_shift, flag);
             memcpy(&matrix_chan[f_number][dlina], &signal_peredis[0], sizeof(Complex) * len_piece_resample);
         }
         piece++;
-        dlina1 += len_sig_decim1;
-        dlina2 += len_sig_decim2;
+        dlina1 += len_signal_shift;
         dlina += len_piece_resample;
     }
     clock_t end = clock();
 
-    if (dlina < len_resample) {
+    if (dlina < len_resample) 
+    {
         for (int i = 0; i < count_channel; i++)
             matrix_chan[i].erase(matrix_chan[i].begin() + dlina, matrix_chan[i].end());
     }
@@ -150,16 +208,16 @@ void filter_down()
         memcpy(&massiv_out[i * dlina], &matrix_chan[i][0], sizeof(Complex) * dlina);
     }
 
-    /*file_out = fopen("C:/Users/79814/Desktop/zadanieNIR/chan 30kHz float.pcm", "wb");
+    FILE* file_out;
+    file_out = fopen("C://Users//maksi//source//repos//filter_signal//filter_signal//chan_30kHz_float.pcm", "wb");
     if (file_out == NULL) {
         cout << "error" << endl;
     }
     fwrite(&massiv_out[0], sizeof(type_data), 2 * dlina * count_channel, file_out);
-    fclose(file_out);*/
+    fclose(file_out);
 
     //Test(massiv_out, count_channel * dlina);
 
-  
 
     cout << "Decimation + Resample" << endl;
     double elapsed_time = static_cast<double>(end - start) / CLOCKS_PER_SEC;
@@ -171,11 +229,51 @@ void filter_down()
 
 }
 
+int length_block = 8192 * 2;
+int fs_up = 30e3;
+
+
+
+// Функция для выполнения переноса по частоте сигнала после интерполяции
+void frequencyShift(vector<Complex>& signal, double shiftFrequency, double sampleRate) {
+    int N = signal.size();
+    double dt = 1.0 / sampleRate;
+
+    // Выполнение преобразования Фурье
+    vector<Complex> spectrum(N);
+    for (int k = 0; k < N; ++k) {
+        for (int n = 0; n < N; ++n) {
+            double theta = 2.0 * PI * k * n / N;
+            spectrum[k] += signal[n] * Complex(cos(-theta), sin(-theta));
+        }
+    }
+
+    // Выполнение переноса частоты путем умножения на комплексный экспонент
+    for (int k = 0; k < N; ++k) {
+        double freq = k / (N * dt);
+        double phaseShift = 2.0 * PI * shiftFrequency * freq;
+        spectrum[k] *= Complex(cos(phaseShift), sin(phaseShift));
+    }
+
+    // Выполнение обратного преобразования Фурье
+    for (int n = 0; n < N; ++n) {
+        signal[n] = Complex(0.0, 0.0);
+        for (int k = 0; k < N; ++k) {
+            double theta = 2.0 * PI * k * n / N;
+            signal[n] += spectrum[k] * Complex(cos(theta), sin(theta));
+        }
+        signal[n] = signal[n]/ N;
+    }
+}
+
 void filter_up()
 {
+    poly_L = 4;
+    poly_M = 3;
     // это вверх 
 
-    file2 = fopen("C:/Users/maksi/source/repos/peredis/peredis/chan_30kHz_float.pcm", "rb"); // путь пк
+    //file2 = fopen("C://Users//maksi//source//repos//peredis//peredis//chan_30kHz_float.pcm", "rb"); // путь пк
+    file2 = fopen("C://Users//maksi//source//repos//filter_signal//filter_signal//chan_30kHz_float.pcm", "rb");
     //file = fopen("C:/Users/AhtemiichukMaxim/source/repos/NIR_peredis/chan_30kHz_float.pcm", "rb"); // путь ноут
     if (file2 == NULL) {
         cout << "error" << endl;
@@ -188,6 +286,10 @@ void filter_up()
     fread(&data[0], 1, len_file, file2);
     fclose(file2);
 
+    type_data fs_after = fs_up * L * poly_L / poly_M;
+    int count_channel = 14; // колличество каналов
+
+    int len_piece = (data.size() / (2 * count_channel)); // длина входного сигнала
     int len_signal_elem = len_signal / 2;
     vector <Complex> to_up(len_piece, 0.0);
     int n = 32;
@@ -210,17 +312,19 @@ void filter_up()
     int dlina = 0;
     int dlina2 = 0;
     int len_piece_resample = 0;
-    int count_channel = 14; // колличество каналов
+  
+   
     vector<int> sdvig(poly_L);
 
     vector<vector <type_data>> polyphazes(poly_L, vector<type_data>(order_poly + 1));
-    Resampler::create_polyphazes(poly_L, M2, order_poly, polyphazes, sdvig);
-
+    type_data fs_to_res = fs_up * L;
+    Resampler::create_polyphazes(poly_L, poly_M, order_poly, polyphazes, sdvig, fs_to_res);
+ 
     vector <Resampler> f3(count_channel); // объекты класса для полифазника
     for (int i = 0; i < count_channel; i++) {
         f3[i] = Resampler(&polyphazes, &sdvig, len_x_add_ostatok, poly_L, poly_M, order_poly);
     }
-
+    
     vector <Interpolator> f2(count_channel); // объекты класса для целого 
     for (int i = 0; i < count_channel; i++) {
         f2[i] = Interpolator(length_conv, fs_up, L, n);
@@ -233,7 +337,7 @@ void filter_up()
     int temp_len = 0;
 
     clock_t start = clock();
-
+    int kl = 0;
     for (int k = 0; k < count_channel; k++)
     {
         for (int count_up = 0, j = 0; count_up < len_piece; count_up++, j += 2) // запись re, im для 
@@ -256,13 +360,23 @@ void filter_up()
             dlina += len_piece_resample;
         }
 
-        type_data param = -2 * PI * shift_f[k];
-
+       
+        type_data param = -2 * PI * shift_f[k] * t_up;
+        //frequencyShift(result, shift_f[k], fs_after);
         // перенос по частоте канала
-        for (int l = 0; l < result.size(); l++)
-        {
-            result_fs[l] += result[l] * Complex(cos(param), sin(param)) * (t_up);
+         // Выполнение переноса частоты путем умножения на комплексный экспонент
+
+        int size = result.size();
+        for (int n = 0; n < size; ++n) {
+            type_data freq = n / (size * fs_down);
+            type_data phaseShift = -2.0 * PI * shift_f[k] * freq;
+            result_fs[n] += result[n] * Complex(cos(phaseShift), sin(phaseShift));
         }
+
+        /*for (int l = 0; l < result.size(); l++)
+        {
+            result_fs[l] += result[l];
+        }*/
 
         temp_len += len_piece;
         dlina = 0;
@@ -281,27 +395,30 @@ void filter_up()
 
     ofstream toMATLAB;
     //string path = "Y:\\Documents\\MATLAB\\NIR\\cpp_tests\\test_sin.bin"; //путь ноут 
-    string path = "C:\\Users\\maksi\\OneDrive\\Документы\\MATLAB\\vs19\\test_sin.bin"; //путь пк
-    toMATLAB.open(path, ios::binary); //запись 
+    //string path = "C:\\Users\\maksi\\OneDrive\\Документы\\MATLAB\\vs19\\out_filter.bin"; //путь пк
+    //toMATLAB.open(path, ios::binary); //запись 
 
     type_data re = 0;
     type_data im = 0;
-
-    for (int i = 0; i < result_fs.size(); i++)
+    FILE *file_out2;
+    file_out2 = fopen("C:\\Users\\maksi\\OneDrive\\Документы\\MATLAB\\vs19\\out_filter.bin", "wb");
+   /* for (int i = 0; i < result_fs.size(); i++)
     {
         re = result_fs[i].real();
         toMATLAB.write(reinterpret_cast<const char*>(&re), sizeof(type_data));
         im = result_fs[i].imag();
         toMATLAB.write(reinterpret_cast<const char*>(&im), sizeof(type_data));
-    }
-
-    toMATLAB.close();
+    }*/
+    fwrite(&result_fs[0], sizeof(type_data),2 * result_fs.size(), file_out2);
+    fclose(file_out2);
+    //toMATLAB.close();
 }
 int main()
 {
     setlocale(LC_ALL, "ru");
     
     filter_down();
-    filter_up();
+    
+    
 
 }

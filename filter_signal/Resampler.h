@@ -31,7 +31,7 @@ public:
     Resampler(vector<vector <type_data>>* polyphazes = nullptr, vector <int>* sdvig = nullptr,
         int len_x_add_ostatok = 1, int L = 1, int M = 1, int order_poly = 50); 
 
-    static void create_polyphazes(int& L, int& M, int& order_poly, vector<vector <type_data>>& polyphazes, vector <int>& sdvig); 
+    static void create_polyphazes(int& L, int& M, int& order_poly, vector<vector <type_data>>& polyphazes, vector <int>& sdvig, type_data& fs_now); 
     ~Resampler();
 
     void resample(vector <Complex>& x_out, int& len_x_out, vector <Complex>& x_in, int& len_x_in, int& flag);

@@ -20,6 +20,11 @@ type_data Complex::abs()
     return sqrt(re * re + im * im);
 }
 
+type_data Complex::arg()
+{
+    return atan2(re, im);
+}
+
 Complex& Complex::operator +=(Complex a)
 {
     re += a.re;
@@ -121,4 +126,24 @@ Complex operator * (type_data a, Complex b)
 {
     Complex r = b;
     return r *= a;
+}
+
+inline bool operator==(Complex a, Complex b)
+{
+    return a.real() == b.real() && a.imag() == b.imag();
+}
+
+inline bool operator==(Complex a, type_data b)
+{
+    return a.real() == b && a.imag() == 0.0;
+}
+
+inline bool operator!=(Complex a, type_data b)
+{
+    return a.real() != b && a.imag() != 0.0;
+}
+
+inline bool operator<(Complex a, type_data b)
+{
+    return (a.real() < b && a.imag() < b) || ((a.real() == b && a.imag() == b) && (a.real() > b && a.imag() > b));
 }

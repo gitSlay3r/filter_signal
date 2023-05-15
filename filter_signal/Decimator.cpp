@@ -19,7 +19,8 @@ Decimator::~Decimator(){}
 
 void Decimator::filter(vector<Complex>& x_out, int& len_x_out, vector<Complex>& x_in, int& len_x_in, int& flag)
 {
-    if (flag == 1) {
+    if (flag == 1) 
+    {
         memset(&x_add_zero[0], 0, sizeof(Complex) * size(x_add_zero));
     }
     memcpy(&x_add_zero[n], &x_in[0], sizeof(Complex) * len_x_in);
@@ -42,7 +43,8 @@ void Decimator::filter(vector<Complex>& x_out, int& len_x_out, vector<Complex>& 
     int m = 0;
     int index_konec = 0;
 
-    for (int p = index_nachalo + nachalo; p < konec; p += M) {
+    for (int p = index_nachalo + nachalo; p < konec; p += M) 
+    {
         x_out[m] = svertka[p];
         index_konec = p - nachalo;
         m++;
@@ -50,5 +52,5 @@ void Decimator::filter(vector<Complex>& x_out, int& len_x_out, vector<Complex>& 
     len_x_out = m;
 
     index_nachalo = M - ((konec - nachalo) - index_konec);
-    piece_flag++;
+    piece_flag++; //при обработке поэтапно откл
 }

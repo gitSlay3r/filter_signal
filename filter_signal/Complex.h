@@ -1,7 +1,7 @@
 #pragma once
 #include <iostream>
 #include <cmath>
-typedef float type_data;
+#define type_data float
 const type_data PI = (type_data)(atan(1)) * 4;
 
 class Complex {
@@ -14,6 +14,7 @@ public:
     type_data imag() const;
     ~Complex();
     type_data abs();
+    type_data arg();
     Complex& operator +=(Complex a);
     Complex& operator += (type_data a);
     Complex& operator *= (Complex a);
@@ -32,5 +33,8 @@ Complex operator + (Complex a, type_data b);
 Complex operator + (type_data a, Complex b);
 Complex operator * (Complex a, type_data b);
 Complex operator * (type_data a, Complex b);
-
+inline bool operator == (Complex a, Complex b);
+inline bool operator == (Complex a, type_data b);
+inline bool operator != (Complex a, type_data b);
+inline bool operator < (Complex a, type_data b);
 

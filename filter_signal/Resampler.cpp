@@ -34,7 +34,7 @@ Resampler::Resampler(vector<vector <type_data>>* polyphazes, vector <int>* sdvig
 
 
 }
-void Resampler::create_polyphazes(int& L, int& M, int& order_poly, vector<vector<type_data>>& polyphazes, vector<int>& sdvig)
+void Resampler::create_polyphazes(int& L, int& M, int& order_poly, vector<vector<type_data>>& polyphazes, vector<int>& sdvig, type_data& fs_now)
 {
     int count_poly = 100;
     vector <type_data> dt(L);
@@ -58,17 +58,11 @@ void Resampler::create_polyphazes(int& L, int& M, int& order_poly, vector<vector
         if (i == count_poly)
             delay = 0;
 
-        memset(&h[0], 0, sizeof(type_data) * (order_poly + 1));
-        type_data koef = 0;
-        if (M > L)
-        {
-            type_data koef = L / M;
-        }
-        else
-            type_data koef = M / L;
-
-        fir1(order_poly, koef, 0, delay, h);
-
+        //memset(&h[0], 0, sizeof(type_data) * (order_poly + 1));
+        h.assign(order_poly + 1, 0);
+    
+        
+        fir1(order_poly, (type_data)L/M, fs_now, delay, h);
         for (int z = 0; z < order_poly + 1; z++)
             poly_filt[j][z] = h[z];
 
