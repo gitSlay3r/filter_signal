@@ -5,8 +5,8 @@
 #include <vector>
 #include <memory.h>
 #include <ctime>
-//#include <stdio.h>
-//#include "ipp.h"
+#include <stdio.h>
+#include <ipp.h>
 #include "Complex.h"
 #include "Interpolator.h"
 #include "Resampler.h"
@@ -17,13 +17,20 @@ using namespace std;
 
 int lim_block = 500000;
 int fs_down = 800e3;
-int L = 20; // целый интерполятор
-int M1 = 5; // целый дециматор
-int M2 = 4;
-int poly_M = 4; // для полифазника вниз
-int poly_L = 3; // для полифазника вверх
-type_data  FS_M1 = (fs_down) / M1;
-type_data FS_M2 = FS_M1 / M2;
+
+//параметры вниз
+vector <int> M{ 2 , 2 , 2}; // коэфицент для стадии
+int Sum_M = 8;
+int poly_M_down = 4; // для полифазника вниз
+int poly_L_down = 3; // для полифазника вверх
+
+//параметры вверх 
+int L = 8; // целый интерполятор
+int poly_L_up = 4;
+int poly_M_up = 3;
+
+//type_data FS_M1 = (fs_down) / M1;
+//type_data FS_M2 = FS_M1 / M2;
 //type_data FS_L = fs_up * L;
 //type_data FS_res = FS_L * poly_M;
 
@@ -31,6 +38,17 @@ int shift_f[14] = { 226420, 201808, 175924, 151435, 126585, 76113, 26325, 475, -
 
 FILE* file;
 FILE* file2;
+
+// частота дискретизации для каждой стадии 
+void fs_stage_M(int& fs, vector <int>& fs_stage, vector <int> M)
+{
+    int temp = fs;
+    for (int i = 0; i < M.size(); i++)
+    {
+        fs_stage[i] = temp / M[i];
+        temp = fs_stage[i];
+    }
+}
 
 void Stage_filter(vector <vector<Decimator>>& decim, int& f_number, vector <Complex>& x_in,int& len_signal_buff,vector<int>& M, int& fs, int& len_pieces, int& n, vector <Complex>& signal_buff_M, int& flag)
 {
@@ -80,7 +98,8 @@ vector<vector<Decimator>> Make_class_dec(vector<int>& M, int& count_channel, int
 void filter_down()
 {
     // здесь вниз
-    file = fopen("C://Users//maksi//source//repos//filter_signal//filter_signal//tetra_chans_0_000MHz_100KHz.pcm", "rb");
+    //file = fopen("C://Users//maksi//source//repos//filter_signal//filter_signal//tetra_chans_0_000MHz_100KHz.pcm", "rb"); // путь пк
+    file = fopen("C://Users//AhtemiichukMaxim//source//repos//filter_signal//filter_signal//tetra_chans_0_000MHz_100KHz.pcm", "rb"); // путь ноут
     if (file == NULL) {
         cout << "error" << endl;
     }
@@ -114,7 +133,14 @@ void filter_down()
 
     int dlina1 = 0;
     int dlina2 = 0;
-    int len_resample = (int)(ceil((type_data)len_signal_elem * poly_L / M1 / M2 / poly_M));
+    int len_resample = (int)(ceil((type_data)len_signal_elem * poly_L_down / poly_M_down));
+
+    for (int i = 0, temp = len_resample; i < M.size(); i++)
+    {
+        len_resample = (int)(ceil((type_data)temp / M[i]));
+        temp = len_resample;
+    }
+
     vector <vector<Complex>> matrix_chan(count_channel, vector<Complex>(len_resample));
 
  /*   vector <Decimator> h1(count_channel);
@@ -127,9 +153,13 @@ void filter_down()
         h2[i] = Decimator(size(signal_after_decimM1) + n, FS_M1, M2, n);
     }*/
 
-    vector<int> sdvig(poly_L);
-    vector<vector <type_data>> polyphazes(poly_L, vector<type_data>(order_poly + 1));
-    Resampler::create_polyphazes(poly_L, poly_M, order_poly, polyphazes, sdvig, FS_M2);
+    vector <int> fs_M(M.size());
+    fs_stage_M(fs_down, fs_M, M);
+
+    vector<int> sdvig(poly_L_down);
+    vector<vector <type_data>> polyphazes(poly_L_down, vector<type_data>(order_poly + 1));
+    type_data fs_resampler = fs_M[M.size()]; // частоты дискретизации перед ресемплером 
+    Resampler::create_polyphazes(poly_L_down, poly_M_down, order_poly, polyphazes, sdvig, fs_resampler);
 
     vector <Resampler> h3(count_channel);
     /*for (int i = 0; i < count_channel; i++) {
@@ -142,7 +172,7 @@ void filter_down()
     int konec = 0;
     clock_t start = clock();
 
-    vector <int> M{ 2 ,2 , 5 };
+    
   
     // вычисление размера вектора для ресемплера
     int len_signal_after_decimM = 0;
@@ -156,11 +186,11 @@ void filter_down()
     vector <vector<Decimator>> decim = Make_class_dec(M, count_channel, len_pieces, n, fs_down);
     //размер и сам буффер для ресемплера
     int res_ostatok = size(signal_after_decimM) + 3 * order_poly / 2;
-    vector <Complex> signal_peredis((int)(ceil((type_data)(res_ostatok)*poly_L / poly_M)));
+    vector <Complex> signal_peredis((int)(ceil((type_data)(res_ostatok)*poly_L_down / poly_M_down)));
     // создание объектов класса ресемплер для каждого канала
     for (int i = 0; i < count_channel; i++)
     {
-        h3[i] = Resampler(&polyphazes, &sdvig, res_ostatok, poly_L, poly_M, order_poly);
+        h3[i] = Resampler(&polyphazes, &sdvig, res_ostatok, poly_L_down, poly_M_down, order_poly);
     }
     while (flag == 0) 
     {
@@ -209,8 +239,10 @@ void filter_down()
     }
 
     FILE* file_out;
-    file_out = fopen("C://Users//maksi//source//repos//filter_signal//filter_signal//chan_30kHz_float.pcm", "wb");
-    if (file_out == NULL) {
+    //file_out = fopen("C://Users//maksi//source//repos//filter_signal//filter_signal//chan_30kHz_float.pcm", "wb"); // путь пк
+    file_out = fopen("Y:\\Documents\\MATLAB\\NIR\\cpp_tests\\chan_30kHz_float_stage.pcm", "wb"); // путь ноут
+    if (file_out == NULL) 
+    {
         cout << "error" << endl;
     }
     fwrite(&massiv_out[0], sizeof(type_data), 2 * dlina * count_channel, file_out);
@@ -229,9 +261,7 @@ void filter_down()
 
 }
 
-int length_block = 8192 * 2;
-int fs_up = 30e3;
-
+int length_block = 8192;
 
 
 // Функция для выполнения переноса по частоте сигнала после интерполяции
@@ -266,15 +296,25 @@ void frequencyShift(vector<Complex>& signal, double shiftFrequency, double sampl
     }
 }
 
+// частота дискретизации для каждой стадии 
+// 
+void fs_stage_L(int& fs, vector <int>& fs_stage, vector <int>& L)
+{
+    int temp = fs;
+    for (int i = 0; i < L.size(); i++)
+    {
+        fs_stage[i] = temp * L[i];
+        temp = fs_stage[i];
+    }
+}
+
 void filter_up()
 {
-    poly_L = 4;
-    poly_M = 3;
-    // это вверх 
-
+    int fs_up = fs_down * poly_L_down / Sum_M * poly_M_down;
+   
     //file2 = fopen("C://Users//maksi//source//repos//peredis//peredis//chan_30kHz_float.pcm", "rb"); // путь пк
-    file2 = fopen("C://Users//maksi//source//repos//filter_signal//filter_signal//chan_30kHz_float.pcm", "rb");
-    //file = fopen("C:/Users/AhtemiichukMaxim/source/repos/NIR_peredis/chan_30kHz_float.pcm", "rb"); // путь ноут
+    //file2 = fopen("C://Users//maksi//source//repos//filter_signal//filter_signal//chan_30kHz_float.pcm", "rb");
+    file2 = fopen("Y:\\Documents\\MATLAB\\NIR\\cpp_tests\\chan_30kHz_float_stage.pcm", "rb"); // путь ноут
     if (file2 == NULL) {
         cout << "error" << endl;
     }
@@ -286,14 +326,15 @@ void filter_up()
     fread(&data[0], 1, len_file, file2);
     fclose(file2);
 
-    type_data fs_after = fs_up * L * poly_L / poly_M;
+    type_data fs_after = fs_up * L * poly_L_up / poly_M_up;
+
     int count_channel = 14; // колличество каналов
 
     int len_piece = (data.size() / (2 * count_channel)); // длина входного сигнала
     int len_signal_elem = len_signal / 2;
     vector <Complex> to_up(len_piece, 0.0);
     int n = 32;
-    int len_resample = (int)(ceil((type_data)to_up.size() * (L * poly_L) / poly_M));
+    int len_resample = (int)(ceil((type_data)to_up.size() * (L * poly_L_up) / poly_M_up));
     vector <Complex> result_block((length_block * L) + n);
     vector <Complex> result(len_resample);
     vector <Complex> block_signal(length_block);
@@ -301,7 +342,7 @@ void filter_up()
 
     int len_x_add_ostatok = size(result) + 3 * order_poly / 2;
 
-    vector <Complex> signal_peredis((int)(ceil((type_data)(len_x_add_ostatok)*poly_L / poly_M)));
+    vector <Complex> signal_peredis((int)(ceil((type_data)(len_x_add_ostatok)*poly_L_up / poly_M_up)));
 
     int numb_section = to_up.size() / length_block;
     int flag = 0;
@@ -314,15 +355,15 @@ void filter_up()
     int len_piece_resample = 0;
   
    
-    vector<int> sdvig(poly_L);
+    vector<int> sdvig(poly_L_up);
 
-    vector<vector <type_data>> polyphazes(poly_L, vector<type_data>(order_poly + 1));
+    vector<vector <type_data>> polyphazes(poly_L_up, vector<type_data>(order_poly + 1));
     type_data fs_to_res = fs_up * L;
-    Resampler::create_polyphazes(poly_L, poly_M, order_poly, polyphazes, sdvig, fs_to_res);
+    Resampler::create_polyphazes(poly_L_up, poly_M_up, order_poly, polyphazes, sdvig, fs_to_res);
  
     vector <Resampler> f3(count_channel); // объекты класса для полифазника
     for (int i = 0; i < count_channel; i++) {
-        f3[i] = Resampler(&polyphazes, &sdvig, len_x_add_ostatok, poly_L, poly_M, order_poly);
+        f3[i] = Resampler(&polyphazes, &sdvig, len_x_add_ostatok, poly_L_up, poly_M_up, order_poly);
     }
     
     vector <Interpolator> f2(count_channel); // объекты класса для целого 
@@ -401,7 +442,8 @@ void filter_up()
     type_data re = 0;
     type_data im = 0;
     FILE *file_out2;
-    file_out2 = fopen("C:\\Users\\maksi\\OneDrive\\Документы\\MATLAB\\vs19\\out_filter.bin", "wb");
+    //file_out2 = fopen("C:\\Users\\maksi\\OneDrive\\Документы\\MATLAB\\vs19\\out_filter.bin", "wb"); // путь пк
+    file_out2 = fopen("Y:\\Documents\\MATLAB\\NIR\\cpp_tests\\test_sin.bin", "wb"); // путь ноут 
    /* for (int i = 0; i < result_fs.size(); i++)
     {
         re = result_fs[i].real();
@@ -413,12 +455,63 @@ void filter_up()
     fclose(file_out2);
     //toMATLAB.close();
 }
+
 int main()
 {
     setlocale(LC_ALL, "ru");
-    
     filter_down();
-    
-    
+    filter_up();
+   //// Входные сигналы
+   // Ipp32f signal1[8] = { 1, 2, 3, 4, 5, 6, 7, 8 };
+   // Ipp32f signal2[8] = { 1, 2, 1, 2, 1, 2, 1, 2 };
+   // //Ipp32f vector[8] = {1, 2, 3, 4, 5, 6, 7, 8 };
+   // //Ipp32f vector[8] = {1, 2, 1, 2, 1, 2, 1, 2 };
+   // // Размер сигналов
+   // int signalSize = 8;
+ 
+   // // Выделение памяти для результатов
+   // Ipp32f* fftResult1 = ippsMalloc_32f(signalSize);
+   // Ipp32f* fftResult2 = ippsMalloc_32f(signalSize);
+   // Ipp32f* convResult = ippsMalloc_32f(2 * signalSize - 1);
 
+   // // Создание объектов FFT
+   // IppsFFTSpec_R_32f* fftSpec = nullptr;
+   // int specSize, initSize, bufferSize;
+   // Ipp8u* buffer;
+
+   // ippsFFTGetSize_R_32f(signalSize, IPP_FFT_DIV_INV_BY_N, ippAlgHintNone, &specSize, &initSize, &bufferSize);
+   // fftSpec = (IppsFFTSpec_R_32f*)ippsMalloc_8u(specSize);
+   // buffer = ippsMalloc_8u(bufferSize);
+   // // Инициализация объекта FFT
+   // ippsFFTGetSize_R_32f(signalSize, IPP_FFT_DIV_INV_BY_N, ippAlgHintNone, &specSize, &initSize, &bufferSize);
+   //
+   // // Прямое преобразование Фурье для обоих сигналов
+   // ippsFFTFwd_RToCCS_32f(signal1, fftResult1, fftSpec, buffer);
+   // ippsFFTFwd_RToCCS_32f(signal2, fftResult2, fftSpec, buffer);
+   // 
+
+   // // Поэлементное умножение в частотной области
+   // ippsMul_32f(fftResult1, fftResult2, convResult, signalSize);
+
+   // // Обратное преобразование Фурье для получения свертки
+   // ippsFFTInv_CCSToR_32f(convResult, convResult, fftSpec, buffer);
+
+   // FILE* file_out_test;
+   // //file_out = fopen("C://Users//maksi//source//repos//filter_signal//filter_signal//chan_30kHz_float.pcm", "wb"); // путь пк
+   // file_out_test = fopen("Y:\\Documents\\MATLAB\\NIR\\cpp_tests\\test_ipp.pcm", "wb"); // путь ноут
+   // if (file_out_test == NULL)
+   // {
+   //     cout << "error" << endl;
+   // }
+   // fwrite(&convResult[0], sizeof(type_data), 2 * signalSize - 1, file_out_test);
+   // fclose(file_out_test);
+
+   // // Освобождение ресурсов
+   // ippsFree(fftResult1);
+   // ippsFree(fftResult2);
+   // ippsFree(convResult);
+   // ippsFree(buffer);
+   // ippsFree(fftSpec);
+
+    return 0;
 }
